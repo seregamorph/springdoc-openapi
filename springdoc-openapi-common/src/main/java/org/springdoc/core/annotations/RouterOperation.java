@@ -40,6 +40,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 @Target({ ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Inherited
+@Deprecated
 public @interface RouterOperation {
 	/**
 	 * The path mapping URIs (e.g. {@code "/profile"}).

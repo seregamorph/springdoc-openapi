@@ -22,10 +22,14 @@ package org.springdoc.core.fn;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
+import io.swagger.v3.oas.models.Operation;
 import org.apache.commons.lang3.StringUtils;
+import org.springdoc.core.Constants;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -39,7 +43,7 @@ public class AbstractRouterFunctionVisitor {
 	/**
 	 * The Router function datas.
 	 */
-	protected List<RouterFunctionData> routerFunctionDatas = new ArrayList<>();
+	protected List<RouterOperation> routerOperations = new ArrayList<>();
 
 	/**
 	 * The Nested or paths.
@@ -74,7 +78,9 @@ public class AbstractRouterFunctionVisitor {
 	/**
 	 * The Router function data.
 	 */
-	protected RouterFunctionData routerFunctionData;
+	protected RouterOperation routerOperation;
+
+	protected Map<String,Object> attributes = new HashMap<>();
 
 	/**
 	 * Method.
@@ -82,7 +88,7 @@ public class AbstractRouterFunctionVisitor {
 	 * @param methods the methods
 	 */
 	public void method(Set<HttpMethod> methods) {
-		routerFunctionData.setMethods(methods);
+		routerOperation.setMethods(methods);
 	}
 
 	/**
@@ -91,8 +97,8 @@ public class AbstractRouterFunctionVisitor {
 	 * @param pattern the pattern
 	 */
 	public void path(String pattern) {
-		if (routerFunctionData != null)
-			routerFunctionData.setPath(pattern);
+		if (routerOperation != null)
+			routerOperation.setPath(pattern);
 		else if (isOr)
 			nestedOrPaths.add(pattern);
 		else if (isNested)
@@ -113,17 +119,10 @@ public class AbstractRouterFunctionVisitor {
 			calculateContentType(value);
 		}
 		else
-			routerFunctionData.addHeaders(name + "=" + value);
+			routerOperation.addHeaders(name + "=" + value);
 	}
 
-	/**
-	 * Gets router function datas.
-	 *
-	 * @return the router function datas
-	 */
-	public List<RouterFunctionData> getRouterFunctionDatas() {
-		return routerFunctionDatas;
-	}
+
 
 	/**
 	 * Query param.
@@ -132,7 +131,7 @@ public class AbstractRouterFunctionVisitor {
 	 * @param value the value
 	 */
 	public void queryParam(String name, String value) {
-		routerFunctionData.addQueryParams(name, value);
+		routerOperation.addQueryParams(name, value);
 	}
 
 	/**
@@ -216,26 +215,26 @@ public class AbstractRouterFunctionVisitor {
 	protected void computeNested() {
 		if (!nestedAndPaths.isEmpty()) {
 			String nestedPath = String.join(StringUtils.EMPTY, nestedAndPaths);
-			routerFunctionDatas.forEach(existingRouterFunctionData -> existingRouterFunctionData.setPath(nestedPath + existingRouterFunctionData.getPath()));
+			routerOperations.forEach(routerOperation -> routerOperation.setPath(nestedPath + routerOperation.getPath()));
 			nestedAndPaths.clear();
 		}
 		if (!nestedOrPaths.isEmpty()) {
-			List<RouterFunctionData> routerFunctionDatasClone = new ArrayList<>();
-			for (RouterFunctionData functionData : routerFunctionDatas) {
+			List<RouterOperation> routerOperationsClone = new ArrayList<>();
+			for (RouterOperation routerOperation : routerOperations) {
 				for (String nestedOrPath : nestedOrPaths) {
-					RouterFunctionData routerFunctionDataClone = new RouterFunctionData(nestedOrPath + functionData.getPath(), functionData.getConsumes(), functionData.getProduces(), functionData.getHeaders(), functionData.getQueryParams(), functionData.getMethods());
-					routerFunctionDatasClone.add(routerFunctionDataClone);
+					RouterOperation routerOperationClone = new RouterOperation(nestedOrPath + routerOperation.getPath(), routerOperation.getConsumes(), routerOperation.getProduces(), routerOperation.getHeaders(), routerOperation.getQueryParams(), routerOperation.getMethods());
+					routerOperationsClone.add(routerOperationClone);
 				}
 			}
-			this.routerFunctionDatas = routerFunctionDatasClone;
+			this.routerOperations = routerOperationsClone;
 			nestedAndPaths.clear();
 		}
 		if (!nestedAcceptHeaders.isEmpty()){
-			routerFunctionDatas.forEach(existingRouterFunctionData -> existingRouterFunctionData.addProduces(nestedAcceptHeaders));
+			routerOperations.forEach(existingRouterOperation -> existingRouterOperation.addProduces(nestedAcceptHeaders));
 			nestedAcceptHeaders.clear();
 		}
 		if (!nestedContentTypeHeaders.isEmpty()){
-			routerFunctionDatas.forEach(existingRouterFunctionData -> existingRouterFunctionData.addConsumes(nestedContentTypeHeaders));
+			routerOperations.forEach(existingRouterOperation -> existingRouterOperation.addConsumes(nestedContentTypeHeaders));
 			nestedContentTypeHeaders.clear();
 		}
 	}
@@ -249,14 +248,14 @@ public class AbstractRouterFunctionVisitor {
 		if (value.contains(",")) {
 			String[] mediaTypes = value.substring(1, value.length() - 1).split(", ");
 			for (String mediaType : mediaTypes)
-				if (routerFunctionData != null)
-					routerFunctionData.addConsumes(mediaType);
+				if (routerOperation != null)
+					routerOperation.addConsumes(mediaType);
 				else
 					nestedContentTypeHeaders.addAll(Arrays.asList(mediaTypes));
 		}
 		else {
-			if (routerFunctionData != null)
-				routerFunctionData.addConsumes(value);
+			if (routerOperation != null)
+				routerOperation.addConsumes(value);
 			else
 				nestedContentTypeHeaders.add(value);
 		}
@@ -271,17 +270,37 @@ public class AbstractRouterFunctionVisitor {
 		if (value.contains(",")) {
 			String[] mediaTypes = value.substring(1, value.length() - 1).split(", ");
 			for (String mediaType : mediaTypes)
-				if (routerFunctionData != null)
-					routerFunctionData.addProduces(mediaType);
+				if (routerOperation != null)
+					routerOperation.addProduces(mediaType);
 				else
 					nestedAcceptHeaders.addAll(Arrays.asList(mediaTypes));
 		}
 		else {
-			if (routerFunctionData != null)
-				routerFunctionData.addProduces(value);
+			if (routerOperation != null)
+				routerOperation.addProduces(value);
 			else
 				nestedAcceptHeaders.add(value);
 		}
 	}
 
+	public List<RouterOperation> getRouterOperations() {
+		return routerOperations;
+	}
+
+	public void setRouterOperations(List<RouterOperation> routerOperations) {
+		this.routerOperations = routerOperations;
+	}
+
+	protected void attributes(Map<String, Object> attributes) {
+		this.attributes = attributes;
+	}
+
+	protected void route() {
+		this.routerOperation = new RouterOperation();
+		this.routerOperations.add(routerOperation);
+		if (attributes.containsKey(Constants.OPERATION_ATTRIBUTE) && attributes.get(Constants.OPERATION_ATTRIBUTE) instanceof Operation) {
+			Operation operation = (Operation) attributes.get(Constants.OPERATION_ATTRIBUTE);
+			routerOperation.setOperation(operation);
+		}
+	}
 }

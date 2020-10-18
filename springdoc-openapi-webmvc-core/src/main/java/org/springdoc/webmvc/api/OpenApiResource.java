@@ -220,7 +220,7 @@ public class OpenApiResource extends AbstractOpenApiResource {
 		}
 
 		routerFunctionProvider.ifPresent(routerFunctions -> routerFunctions.getWebMvcRouterFunctionPaths()
-				.ifPresent(routerBeans -> routerBeans.forEach(this::getRouterFunctionPaths)));
+				.ifPresent(routerBeans -> routerBeans.values().forEach(this::getRouterFunctionPaths)));
 
 		if (repositoryRestResourceProvider.isPresent()) {
 			RepositoryRestResourceProvider restResourceProvider = this.repositoryRestResourceProvider.get();

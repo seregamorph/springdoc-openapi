@@ -37,6 +37,7 @@ import static java.lang.annotation.ElementType.METHOD;
 @Target({METHOD, ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Inherited
+@Deprecated
 public @interface RouterOperations {
 	/**
 	 * An array of RouterOperation Objects for the Router

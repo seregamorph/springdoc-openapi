@@ -270,6 +270,20 @@ public final class Constants {
 	 */
 	public static final String CSRF_DEFAULT_HEADER_NAME= "X-XSRF-TOKEN";
 
+	public static final String OPERATION_ATTRIBUTE = Constants.class.getName() + ".operation";
+
+	public static final String REQUESTBODY_ATTRIBUTE = Constants.class.getName() + ".requestBody";
+
+	public static final String REQUESTBODY_TYPE = Constants.class.getName() + ".requestBodyTpe";
+
+	public static final String RESPONSE_TYPE = Constants.class.getName() + ".responseType";
+
+	public static final String RESPONSE_ARRAY_TYPE = Constants.class.getName() + ".responseArrayType";
+
+	public static final String BEAN_CLASS = Constants.class.getName() + ".beanClass";
+
+	public static final String BEAN_METHOD = Constants.class.getName() + ".BeanMethod";
+
 	/**
 	 * Instantiates a new Constants.
 	 */

@@ -26,7 +26,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import org.springdoc.core.fn.AbstractRouterFunctionVisitor;
-import org.springdoc.core.fn.RouterFunctionData;
 
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.io.Resource;
@@ -85,8 +84,6 @@ public class RouterFunctionProvider {
 	private class RouterFunctionVisitor extends AbstractRouterFunctionVisitor implements RouterFunctions.Visitor, RequestPredicates.Visitor {
 		@Override
 		public void route(RequestPredicate predicate, HandlerFunction<?> handlerFunction) {
-			this.routerFunctionData = new RouterFunctionData();
-			routerFunctionDatas.add(this.routerFunctionData);
 			predicate.accept(this);
 		}
 
@@ -117,5 +114,9 @@ public class RouterFunctionProvider {
 			computeNested();
 		}
 
+		@Override
+		public void attributes(Map<String, Object> attributes) {
+			super.attributes(attributes);
+		}
 	}
 }

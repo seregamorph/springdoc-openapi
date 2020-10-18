@@ -21,13 +21,16 @@
 package org.springdoc.core.fn;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 
-import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.models.Operation;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 
+import org.springframework.http.HttpMethod;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.RequestMethod;
 
 
@@ -63,6 +66,16 @@ public class RouterOperation implements Comparable<RouterOperation> {
 	private String[] headers;
 
 	/**
+	 * The Query params.
+	 */
+	private Map<String, String> queryParams;
+
+	/**
+	 * The Operation model.
+	 */
+	private Operation operation;
+
+	/**
 	 * The Bean class.
 	 */
 	private Class<?> beanClass;
@@ -77,55 +90,15 @@ public class RouterOperation implements Comparable<RouterOperation> {
 	 */
 	private Class<?>[] parameterTypes;
 
-	/**
-	 * The Query params.
-	 */
-	private Map<String, String> queryParams;
+	public RouterOperation() { }
 
-	/**
-	 * The Operation.
-	 */
-	private Operation operation;
-
-	/**
-	 * The Operation model.
-	 */
-	private io.swagger.v3.oas.models.Operation operationModel;
-
-	/**
-	 * Instantiates a new Router operation.
-	 *
-	 * @param routerOperationAnnotation the router operation annotation
-	 */
-	public RouterOperation(org.springdoc.core.annotations.RouterOperation routerOperationAnnotation) {
-		this.path = routerOperationAnnotation.path();
-		this.methods = routerOperationAnnotation.method();
-		this.consumes = routerOperationAnnotation.consumes();
-		this.produces = routerOperationAnnotation.produces();
-		this.beanClass = routerOperationAnnotation.beanClass();
-		this.beanMethod = routerOperationAnnotation.beanMethod();
-		this.parameterTypes = routerOperationAnnotation.parameterTypes();
-		this.operation = routerOperationAnnotation.operation();
-		this.headers = routerOperationAnnotation.headers();
-	}
-
-	/**
-	 * Instantiates a new Router operation.
-	 *
-	 * @param routerOperationAnnotation the router operation annotation
-	 * @param routerFunctionData the router function data
-	 */
-	public RouterOperation(org.springdoc.core.annotations.RouterOperation routerOperationAnnotation, RouterFunctionData routerFunctionData) {
-		this.path = StringUtils.isBlank(routerOperationAnnotation.path()) ? routerFunctionData.getPath() : routerOperationAnnotation.path();
-		this.methods = ArrayUtils.isEmpty(routerOperationAnnotation.method()) ? routerFunctionData.getMethods() : routerOperationAnnotation.method();
-		this.consumes = ArrayUtils.isEmpty(routerOperationAnnotation.consumes()) ? routerFunctionData.getConsumes() : routerOperationAnnotation.consumes();
-		this.produces = ArrayUtils.isEmpty(routerOperationAnnotation.produces()) ? routerFunctionData.getProduces() : routerOperationAnnotation.produces();
-		this.beanClass = routerOperationAnnotation.beanClass();
-		this.beanMethod = routerOperationAnnotation.beanMethod();
-		this.parameterTypes = routerOperationAnnotation.parameterTypes();
-		this.operation = routerOperationAnnotation.operation();
-		this.headers = ArrayUtils.isEmpty(routerOperationAnnotation.headers()) ? routerFunctionData.getHeaders() : routerOperationAnnotation.headers();
-		this.queryParams = routerFunctionData.getQueryParams();
+	public RouterOperation(String path, String[] consumes, String[] produces, String[] headers, Map<String, String> queryParams, RequestMethod[] methods) {
+		this.path = path;
+		this.methods = methods;
+		this.consumes = consumes;
+		this.produces = produces;
+		this.headers = headers;
+		this.queryParams = queryParams;
 	}
 
 	/**
@@ -171,8 +144,8 @@ public class RouterOperation implements Comparable<RouterOperation> {
 	 *
 	 * @param methods the methods
 	 */
-	public void setMethods(RequestMethod[] methods) {
-		this.methods = methods;
+	public void setMethods(Set<HttpMethod> methods) {
+		this.methods = getMethod(methods);
 	}
 
 	/**
@@ -212,78 +185,6 @@ public class RouterOperation implements Comparable<RouterOperation> {
 	}
 
 	/**
-	 * Gets bean class.
-	 *
-	 * @return the bean class
-	 */
-	public Class<?> getBeanClass() {
-		return beanClass;
-	}
-
-	/**
-	 * Sets bean class.
-	 *
-	 * @param beanClass the bean class
-	 */
-	public void setBeanClass(Class<?> beanClass) {
-		this.beanClass = beanClass;
-	}
-
-	/**
-	 * Gets bean method.
-	 *
-	 * @return the bean method
-	 */
-	public String getBeanMethod() {
-		return beanMethod;
-	}
-
-	/**
-	 * Sets bean method.
-	 *
-	 * @param beanMethod the bean method
-	 */
-	public void setBeanMethod(String beanMethod) {
-		this.beanMethod = beanMethod;
-	}
-
-	/**
-	 * Get parameter types class [ ].
-	 *
-	 * @return the class [ ]
-	 */
-	public Class<?>[] getParameterTypes() {
-		return parameterTypes;
-	}
-
-	/**
-	 * Sets parameter types.
-	 *
-	 * @param parameterTypes the parameter types
-	 */
-	public void setParameterTypes(Class<?>[] parameterTypes) {
-		this.parameterTypes = parameterTypes;
-	}
-
-	/**
-	 * Gets operation.
-	 *
-	 * @return the operation
-	 */
-	public Operation getOperation() {
-		return operation;
-	}
-
-	/**
-	 * Sets operation.
-	 *
-	 * @param operation the operation
-	 */
-	public void setOperation(Operation operation) {
-		this.operation = operation;
-	}
-
-	/**
 	 * Get headers string [ ].
 	 *
 	 * @return the string [ ]
@@ -319,22 +220,149 @@ public class RouterOperation implements Comparable<RouterOperation> {
 		this.queryParams = queryParams;
 	}
 
-	/**
-	 * Gets operation model.
-	 *
-	 * @return the operation model
-	 */
-	public io.swagger.v3.oas.models.Operation getOperationModel() {
-		return operationModel;
+	public Operation getOperation() {
+		return operation;
+	}
+
+	public void setOperation(Operation operation) {
+		this.operation = operation;
 	}
 
 	/**
-	 * Sets operation model.
+	 * Add produces.
 	 *
-	 * @param operationModel the operation model
+	 * @param produces the produces
 	 */
-	public void setOperationModel(io.swagger.v3.oas.models.Operation operationModel) {
-		this.operationModel = operationModel;
+	public void addProduces(List<String> produces) {
+		this.produces = ArrayUtils.addAll(this.produces, produces.toArray(new String[0]));
+	}
+
+	/**
+	 * Add consumes.
+	 *
+	 * @param consumes the consumes
+	 */
+	public void addConsumes(List<String> consumes) {
+		this.consumes = ArrayUtils.addAll(this.consumes, consumes.toArray(new String[0]));
+	}
+
+	/**
+	 * Add consumes.
+	 *
+	 * @param consumes the consumes
+	 */
+	public void addConsumes(String consumes) {
+		if (StringUtils.isNotBlank(consumes))
+			this.consumes = ArrayUtils.add(this.consumes, consumes);
+	}
+
+	/**
+	 * Add produces.
+	 *
+	 * @param produces the produces
+	 */
+	public void addProduces(String produces) {
+		if (StringUtils.isNotBlank(produces))
+			this.produces = ArrayUtils.add(this.produces, produces);
+	}
+
+	/**
+	 * Add headers.
+	 *
+	 * @param headers the headers
+	 */
+	public void addHeaders(String headers) {
+		if (StringUtils.isNotBlank(headers))
+			this.headers = ArrayUtils.add(this.headers, headers);
+	}
+
+	public void setMethods(RequestMethod[] methods) {
+		this.methods = methods;
+	}
+
+	public Class<?> getBeanClass() {
+		return beanClass;
+	}
+
+	public void setBeanClass(Class<?> beanClass) {
+		this.beanClass = beanClass;
+	}
+
+	public String getBeanMethod() {
+		return beanMethod;
+	}
+
+	public void setBeanMethod(String beanMethod) {
+		this.beanMethod = beanMethod;
+	}
+
+	public Class<?>[] getParameterTypes() {
+		return parameterTypes;
+	}
+
+	public void setParameterTypes(Class<?>[] parameterTypes) {
+		this.parameterTypes = parameterTypes;
+	}
+
+	/**
+	 * Add query params.
+	 *
+	 * @param name the name
+	 * @param value the value
+	 */
+	public void addQueryParams(String name, String value) {
+		this.queryParams.put(name, value);
+	}
+
+	/**
+	 * Get method request method [ ].
+	 *
+	 * @param methods the methods
+	 * @return the request method [ ]
+	 */
+	private RequestMethod[] getMethod(Set<HttpMethod> methods) {
+		if (!CollectionUtils.isEmpty(methods)) {
+			return methods.stream().map(this::getRequestMethod).toArray(RequestMethod[]::new);
+		}
+		return ArrayUtils.toArray();
+	}
+
+
+	/**
+	 * Gets request method.
+	 *
+	 * @param httpMethod the http method
+	 * @return the request method
+	 */
+	private RequestMethod getRequestMethod(HttpMethod httpMethod) {
+		RequestMethod requestMethod = null;
+		switch (httpMethod) {
+			case GET:
+				requestMethod = RequestMethod.GET;
+				break;
+			case POST:
+				requestMethod = RequestMethod.POST;
+				break;
+			case PUT:
+				requestMethod = RequestMethod.PUT;
+				break;
+			case DELETE:
+				requestMethod = RequestMethod.DELETE;
+				break;
+			case PATCH:
+				requestMethod = RequestMethod.PATCH;
+				break;
+			case HEAD:
+				requestMethod = RequestMethod.HEAD;
+				break;
+			case OPTIONS:
+				requestMethod = RequestMethod.OPTIONS;
+				break;
+			default:
+				// Do nothing here
+				break;
+		}
+		return requestMethod;
 	}
 
 	@Override
@@ -342,10 +370,8 @@ public class RouterOperation implements Comparable<RouterOperation> {
 		int result = path.compareTo(routerOperation.getPath());
 		if (result == 0 && !ArrayUtils.isEmpty(methods))
 			result = methods[0].compareTo(routerOperation.getMethods()[0]);
-		if (result == 0 && operationModel != null && routerOperation.getOperationModel() != null)
-			result = operationModel.getOperationId().compareTo(routerOperation.getOperationModel().getOperationId());
-		if (result == 0 && operation != null)
-			result = operation.operationId().compareTo(routerOperation.getOperation().operationId());
+		if (result == 0 && operation != null && routerOperation.getOperation() != null)
+			result = operation.getOperationId().compareTo(routerOperation.getOperation().getOperationId());
 		return result;
 	}
 
@@ -353,27 +379,41 @@ public class RouterOperation implements Comparable<RouterOperation> {
 	public boolean equals(Object o) {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
+
 		RouterOperation that = (RouterOperation) o;
-		return Objects.equals(path, that.path) &&
-				Arrays.equals(methods, that.methods) &&
-				Arrays.equals(consumes, that.consumes) &&
-				Arrays.equals(produces, that.produces) &&
-				Arrays.equals(headers, that.headers) &&
-				Objects.equals(beanClass, that.beanClass) &&
-				Objects.equals(beanMethod, that.beanMethod) &&
-				Arrays.equals(parameterTypes, that.parameterTypes) &&
-				Objects.equals(queryParams, that.queryParams) &&
-				Objects.equals(operation, that.operation) &&
-				Objects.equals(operationModel, that.operationModel);
+
+		if (path != null ? !path.equals(that.path) : that.path != null) return false;
+		// Probably incorrect - comparing Object[] arrays with Arrays.equals
+		if (!Arrays.equals(methods, that.methods)) return false;
+		// Probably incorrect - comparing Object[] arrays with Arrays.equals
+		if (!Arrays.equals(consumes, that.consumes)) return false;
+		// Probably incorrect - comparing Object[] arrays with Arrays.equals
+		if (!Arrays.equals(produces, that.produces)) return false;
+		// Probably incorrect - comparing Object[] arrays with Arrays.equals
+		if (!Arrays.equals(headers, that.headers)) return false;
+		if (queryParams != null ? !queryParams.equals(that.queryParams) : that.queryParams != null)
+			return false;
+		if (operation != null ? !operation.equals(that.operation) : that.operation != null)
+			return false;
+		if (beanClass != null ? !beanClass.equals(that.beanClass) : that.beanClass != null)
+			return false;
+		if (beanMethod != null ? !beanMethod.equals(that.beanMethod) : that.beanMethod != null)
+			return false;
+		// Probably incorrect - comparing Object[] arrays with Arrays.equals
+		return Arrays.equals(parameterTypes, that.parameterTypes);
 	}
 
 	@Override
 	public int hashCode() {
-		int result = Objects.hash(path, beanClass, beanMethod, queryParams, operation, operationModel);
+		int result = path != null ? path.hashCode() : 0;
 		result = 31 * result + Arrays.hashCode(methods);
 		result = 31 * result + Arrays.hashCode(consumes);
 		result = 31 * result + Arrays.hashCode(produces);
 		result = 31 * result + Arrays.hashCode(headers);
+		result = 31 * result + (queryParams != null ? queryParams.hashCode() : 0);
+		result = 31 * result + (operation != null ? operation.hashCode() : 0);
+		result = 31 * result + (beanClass != null ? beanClass.hashCode() : 0);
+		result = 31 * result + (beanMethod != null ? beanMethod.hashCode() : 0);
 		result = 31 * result + Arrays.hashCode(parameterTypes);
 		return result;
 	}

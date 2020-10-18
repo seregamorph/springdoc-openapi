@@ -236,7 +236,7 @@ public class DataRestRouterOperationBuilder {
 		routerOperation.setProduces(methodAttributes.getMethodProduces());
 		Operation operation = dataRestOperationBuilder.buildOperation(handlerMethod, dataRestRepository,
 				openAPI, requestMethod, operationPath, methodAttributes, resourceMetadata, methodResourceMapping, controllerType);
-		routerOperation.setOperationModel(operation);
+		routerOperation.setOperation(operation);
 		routerOperationList.add(routerOperation);
 	}
 

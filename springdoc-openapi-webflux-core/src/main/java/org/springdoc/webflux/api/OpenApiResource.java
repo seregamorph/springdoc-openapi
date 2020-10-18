@@ -228,7 +228,7 @@ public class OpenApiResource extends AbstractOpenApiResource {
 			RouterFunction routerFunction = entry.getValue();
 			RouterFunctionVisitor routerFunctionVisitor = new RouterFunctionVisitor();
 			routerFunction.accept(routerFunctionVisitor);
-			getRouterFunctionPaths(entry.getKey(), routerFunctionVisitor);
+			getRouterFunctionPaths(routerFunctionVisitor);
 		}
 	}
 

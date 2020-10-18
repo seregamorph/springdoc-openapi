@@ -75,15 +75,12 @@ import org.springdoc.core.OpenAPIBuilder;
 import org.springdoc.core.OperationBuilder;
 import org.springdoc.core.SpringDocConfigProperties;
 import org.springdoc.core.SpringDocConfigProperties.GroupConfig;
-import org.springdoc.core.annotations.RouterOperations;
 import org.springdoc.core.customizers.OpenApiCustomiser;
 import org.springdoc.core.customizers.OperationCustomizer;
 import org.springdoc.core.fn.AbstractRouterFunctionVisitor;
-import org.springdoc.core.fn.RouterFunctionData;
 import org.springdoc.core.fn.RouterOperation;
 
 import org.springframework.beans.factory.ObjectFactory;
-import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.AntPathMatcher;
@@ -309,7 +306,6 @@ public abstract class AbstractOpenApiResource extends SpecFilter {
 	protected void calculatePath(HandlerMethod handlerMethod, RouterOperation routerOperation) {
 		String operationPath = routerOperation.getPath();
 		Set<RequestMethod> requestMethods = new HashSet<>(Arrays.asList(routerOperation.getMethods()));
-		io.swagger.v3.oas.annotations.Operation apiOperation = routerOperation.getOperation();
 		String[] methodConsumes = routerOperation.getConsumes();
 		String[] methodProduces = routerOperation.getProduces();
 		String[] headers = routerOperation.getHeaders();
@@ -350,10 +346,8 @@ public abstract class AbstractOpenApiResource extends SpecFilter {
 			if (isDeprecated(method))
 				operation.setDeprecated(true);
 
-			// Add documentation from operation annotation
-			if (apiOperation == null || StringUtils.isBlank(apiOperation.operationId()))
-				apiOperation = AnnotatedElementUtils.findMergedAnnotation(method,
-						io.swagger.v3.oas.annotations.Operation.class);
+			io.swagger.v3.oas.annotations.Operation apiOperation = AnnotatedElementUtils.findMergedAnnotation(method,
+					io.swagger.v3.oas.annotations.Operation.class);
 
 			calculateJsonView(apiOperation, methodAttributes, method);
 			if (apiOperation != null)
@@ -411,43 +405,10 @@ public abstract class AbstractOpenApiResource extends SpecFilter {
 	 * @param routerOperationList the router operation list
 	 */
 	protected void calculatePath(List<RouterOperation> routerOperationList) {
-		ApplicationContext applicationContext = openAPIBuilder.getContext();
 		if (!CollectionUtils.isEmpty(routerOperationList)) {
 			Collections.sort(routerOperationList);
-			for (RouterOperation routerOperation : routerOperationList) {
-				if (routerOperation.getBeanClass() != null && !Void.class.equals(routerOperation.getBeanClass())) {
-					Object handlerBean = applicationContext.getBean(routerOperation.getBeanClass());
-					HandlerMethod handlerMethod = null;
-					if (StringUtils.isNotBlank(routerOperation.getBeanMethod())) {
-						try {
-							if (ArrayUtils.isEmpty(routerOperation.getParameterTypes())) {
-								Optional<Method> methodOptional = Arrays.stream(handlerBean.getClass().getDeclaredMethods())
-										.filter(method -> routerOperation.getBeanMethod().equals(method.getName()) && method.getParameters().length == 0)
-										.findAny();
-								if (!methodOptional.isPresent())
-									methodOptional = Arrays.stream(handlerBean.getClass().getDeclaredMethods())
-											.filter(method1 -> routerOperation.getBeanMethod().equals(method1.getName()))
-											.findAny();
-								if (methodOptional.isPresent())
-									handlerMethod = new HandlerMethod(handlerBean, methodOptional.get());
-							}
-							else
-								handlerMethod = new HandlerMethod(handlerBean, routerOperation.getBeanMethod(), routerOperation.getParameterTypes());
-						}
-						catch (NoSuchMethodException e) {
-							LOGGER.error(e.getMessage());
-						}
-						if (handlerMethod != null && isFilterCondition(handlerMethod, routerOperation.getPath(), routerOperation.getProduces(), routerOperation.getConsumes(), routerOperation.getHeaders()))
-							calculatePath(handlerMethod, routerOperation);
-					}
-				}
-				else if (routerOperation.getOperation() != null && StringUtils.isNotBlank(routerOperation.getOperation().operationId()) && isFilterCondition(routerOperation.getPath(), routerOperation.getProduces(), routerOperation.getConsumes(), routerOperation.getHeaders())) {
-					calculatePath(routerOperation);
-				}
-				else if (routerOperation.getOperationModel() != null && StringUtils.isNotBlank(routerOperation.getOperationModel().getOperationId()) && isFilterCondition(routerOperation.getPath(), routerOperation.getProduces(), routerOperation.getConsumes(), routerOperation.getHeaders())) {
-					calculatePath(routerOperation);
-				}
-			}
+			routerOperationList.stream().filter(routerOperation -> routerOperation.getOperation() != null && StringUtils.isNotBlank(routerOperation.getOperation().getOperationId()) && isFilterCondition(routerOperation.getPath(), routerOperation.getProduces(), routerOperation.getConsumes(), routerOperation.getHeaders()))
+					.forEach(this::calculatePath);
 		}
 	}
 
@@ -458,7 +419,6 @@ public abstract class AbstractOpenApiResource extends SpecFilter {
 	 */
 	protected void calculatePath(RouterOperation routerOperation) {
 		String operationPath = routerOperation.getPath();
-		io.swagger.v3.oas.annotations.Operation apiOperation = routerOperation.getOperation();
 		String[] methodConsumes = routerOperation.getConsumes();
 		String[] methodProduces = routerOperation.getProduces();
 		String[] headers = routerOperation.getHeaders();
@@ -476,8 +436,6 @@ public abstract class AbstractOpenApiResource extends SpecFilter {
 			MethodAttributes methodAttributes = new MethodAttributes(springDocConfigProperties.getDefaultConsumesMediaType(), springDocConfigProperties.getDefaultProducesMediaType(), methodConsumes, methodProduces, headers);
 			methodAttributes.setMethodOverloaded(existingOperation != null);
 			Operation operation = getOperation(routerOperation, existingOperation);
-			if (apiOperation != null)
-				openAPI = operationParser.parse(apiOperation, operation, openAPI, methodAttributes);
 
 			String operationId = operationParser.getOperationId(operation.getOperationId(), openAPI);
 			operation.setOperationId(operationId);
@@ -508,30 +466,10 @@ public abstract class AbstractOpenApiResource extends SpecFilter {
 		this.calculatePath(handlerMethod, new RouterOperation(operationPath, requestMethods.toArray(new RequestMethod[requestMethods.size()])));
 	}
 
-	/**
-	 * Gets router function paths.
-	 *
-	 * @param beanName the bean name
-	 * @param routerFunctionVisitor the router function visitor
-	 */
-	protected void getRouterFunctionPaths(String beanName, AbstractRouterFunctionVisitor routerFunctionVisitor) {
-		List<org.springdoc.core.annotations.RouterOperation> routerOperationList = new ArrayList<>();
-		ApplicationContext applicationContext = openAPIBuilder.getContext();
-		RouterOperations routerOperations = applicationContext.findAnnotationOnBean(beanName, RouterOperations.class);
-		if (routerOperations == null) {
-			org.springdoc.core.annotations.RouterOperation routerOperation = applicationContext.findAnnotationOnBean(beanName, org.springdoc.core.annotations.RouterOperation.class);
-			if (routerOperation != null)
-				routerOperationList.add(routerOperation);
-		}
-		else
-			routerOperationList.addAll(Arrays.asList(routerOperations.value()));
-		if (routerOperationList.size() == 1)
-			calculatePath(routerOperationList.stream().map(routerOperation -> new RouterOperation(routerOperation, routerFunctionVisitor.getRouterFunctionDatas().get(0))).collect(Collectors.toList()));
-		else {
-			List<RouterOperation> operationList = routerOperationList.stream().map(RouterOperation::new).collect(Collectors.toList());
-			mergeRouters(routerFunctionVisitor.getRouterFunctionDatas(), operationList);
-			calculatePath(operationList);
-		}
+
+	protected void getRouterFunctionPaths(AbstractRouterFunctionVisitor routerFunctionVisitor) {
+		List<RouterOperation> operationList = routerFunctionVisitor.getRouterOperations();
+		calculatePath(operationList);
 	}
 
 	/**
@@ -682,94 +620,6 @@ public abstract class AbstractOpenApiResource extends SpecFilter {
 	}
 
 	/**
-	 * Merge routers.
-	 *
-	 * @param routerFunctionDatas the router function datas
-	 * @param routerOperationList the router operation list
-	 */
-	protected void mergeRouters(List<RouterFunctionData> routerFunctionDatas, List<RouterOperation> routerOperationList) {
-		for (RouterOperation routerOperation : routerOperationList) {
-			if (StringUtils.isNotBlank(routerOperation.getPath())) {
-				// PATH
-				List<RouterFunctionData> routerFunctionDataList = routerFunctionDatas.stream()
-						.filter(routerFunctionData1 -> routerFunctionData1.getPath().equals(routerOperation.getPath()))
-						.collect(Collectors.toList());
-				if (routerFunctionDataList.size() == 1)
-					fillRouterOperation(routerFunctionDataList.get(0), routerOperation);
-				else if (routerFunctionDataList.size() > 1 && ArrayUtils.isNotEmpty(routerOperation.getMethods())) {
-					// PATH + METHOD
-					routerFunctionDataList = routerFunctionDatas.stream()
-							.filter(routerFunctionData1 -> routerFunctionData1.getPath().equals(routerOperation.getPath())
-									&& isEqualMethods(routerOperation.getMethods(), routerFunctionData1.getMethods()))
-							.collect(Collectors.toList());
-					if (routerFunctionDataList.size() == 1)
-						fillRouterOperation(routerFunctionDataList.get(0), routerOperation);
-					else if (routerFunctionDataList.size() > 1 && ArrayUtils.isNotEmpty(routerOperation.getProduces())) {
-						// PATH + METHOD + PRODUCES
-						routerFunctionDataList = routerFunctionDatas.stream()
-								.filter(routerFunctionData1 -> routerFunctionData1.getPath().equals(routerOperation.getPath())
-										&& isEqualMethods(routerOperation.getMethods(), routerFunctionData1.getMethods())
-										&& isEqualArrays(routerFunctionData1.getProduces(), routerOperation.getProduces()))
-								.collect(Collectors.toList());
-						if (routerFunctionDataList.size() == 1)
-							fillRouterOperation(routerFunctionDataList.get(0), routerOperation);
-						else if (routerFunctionDataList.size() > 1 && ArrayUtils.isNotEmpty(routerOperation.getConsumes())) {
-							// PATH + METHOD + PRODUCES + CONSUMES
-							routerFunctionDataList = routerFunctionDatas.stream()
-									.filter(routerFunctionData1 -> routerFunctionData1.getPath().equals(routerOperation.getPath())
-											&& isEqualMethods(routerOperation.getMethods(), routerFunctionData1.getMethods())
-											&& isEqualArrays(routerFunctionData1.getProduces(), routerOperation.getProduces())
-											&& isEqualArrays(routerFunctionData1.getConsumes(), routerOperation.getConsumes()))
-									.collect(Collectors.toList());
-							if (routerFunctionDataList.size() == 1)
-								fillRouterOperation(routerFunctionDataList.get(0), routerOperation);
-						}
-					}
-					else if (routerFunctionDataList.size() > 1 && ArrayUtils.isNotEmpty(routerOperation.getConsumes())) {
-						// PATH + METHOD + CONSUMES
-						routerFunctionDataList = routerFunctionDatas.stream()
-								.filter(routerFunctionData1 -> routerFunctionData1.getPath().equals(routerOperation.getPath())
-										&& isEqualMethods(routerOperation.getMethods(), routerFunctionData1.getMethods())
-										&& isEqualArrays(routerFunctionData1.getConsumes(), routerOperation.getConsumes()))
-								.collect(Collectors.toList());
-						if (routerFunctionDataList.size() == 1)
-							fillRouterOperation(routerFunctionDataList.get(0), routerOperation);
-					}
-				}
-				else if (routerFunctionDataList.size() > 1 && ArrayUtils.isNotEmpty(routerOperation.getProduces())) {
-					// PATH + PRODUCES
-					routerFunctionDataList = routerFunctionDatas.stream()
-							.filter(routerFunctionData1 -> routerFunctionData1.getPath().equals(routerOperation.getPath())
-									&& isEqualArrays(routerFunctionData1.getProduces(), routerOperation.getProduces()))
-							.collect(Collectors.toList());
-					if (routerFunctionDataList.size() == 1)
-						fillRouterOperation(routerFunctionDataList.get(0), routerOperation);
-					else if (routerFunctionDataList.size() > 1 && ArrayUtils.isNotEmpty(routerOperation.getConsumes())) {
-						// PATH + PRODUCES + CONSUMES
-						routerFunctionDataList = routerFunctionDatas.stream()
-								.filter(routerFunctionData1 -> routerFunctionData1.getPath().equals(routerOperation.getPath())
-										&& isEqualMethods(routerOperation.getMethods(), routerFunctionData1.getMethods())
-										&& isEqualArrays(routerFunctionData1.getConsumes(), routerOperation.getConsumes())
-										&& isEqualArrays(routerFunctionData1.getProduces(), routerOperation.getProduces()))
-								.collect(Collectors.toList());
-						if (routerFunctionDataList.size() == 1)
-							fillRouterOperation(routerFunctionDataList.get(0), routerOperation);
-					}
-				}
-				else if (routerFunctionDataList.size() > 1 && ArrayUtils.isNotEmpty(routerOperation.getConsumes())) {
-					// PATH + CONSUMES
-					routerFunctionDataList = routerFunctionDatas.stream()
-							.filter(routerFunctionData1 -> routerFunctionData1.getPath().equals(routerOperation.getPath())
-									&& isEqualArrays(routerFunctionData1.getConsumes(), routerOperation.getConsumes()))
-							.collect(Collectors.toList());
-					if (routerFunctionDataList.size() == 1)
-						fillRouterOperation(routerFunctionDataList.get(0), routerOperation);
-				}
-			}
-		}
-	}
-
-	/**
 	 * Calculate json view.
 	 *
 	 * @param apiOperation the api operation
@@ -803,32 +653,6 @@ public abstract class AbstractOpenApiResource extends SpecFilter {
 	}
 
 	/**
-	 * Is equal arrays boolean.
-	 *
-	 * @param array1 the array 1
-	 * @param array2 the array 2
-	 * @return the boolean
-	 */
-	private boolean isEqualArrays(String[] array1, String[] array2) {
-		Arrays.sort(array1);
-		Arrays.sort(array2);
-		return Arrays.equals(array1, array2);
-	}
-
-	/**
-	 * Is equal methods boolean.
-	 *
-	 * @param requestMethods1 the request methods 1
-	 * @param requestMethods2 the request methods 2
-	 * @return the boolean
-	 */
-	private boolean isEqualMethods(RequestMethod[] requestMethods1, RequestMethod[] requestMethods2) {
-		Arrays.sort(requestMethods1);
-		Arrays.sort(requestMethods2);
-		return Arrays.equals(requestMethods1, requestMethods2);
-	}
-
-	/**
 	 * Fill parameters list.
 	 *
 	 * @param operation the operation
@@ -852,25 +676,6 @@ public abstract class AbstractOpenApiResource extends SpecFilter {
 			}
 			operation.setParameters(parametersList);
 		}
-	}
-
-	/**
-	 * Fill router operation.
-	 *
-	 * @param routerFunctionData the router function data
-	 * @param routerOperation the router operation
-	 */
-	private void fillRouterOperation(RouterFunctionData routerFunctionData, RouterOperation routerOperation) {
-		if (ArrayUtils.isEmpty(routerOperation.getConsumes()))
-			routerOperation.setConsumes(routerFunctionData.getConsumes());
-		if (ArrayUtils.isEmpty(routerOperation.getProduces()))
-			routerOperation.setProduces(routerFunctionData.getProduces());
-		if (ArrayUtils.isEmpty(routerOperation.getHeaders()))
-			routerOperation.setHeaders(routerFunctionData.getHeaders());
-		if (ArrayUtils.isEmpty(routerOperation.getMethods()))
-			routerOperation.setMethods(routerFunctionData.getMethods());
-		if (CollectionUtils.isEmpty(routerOperation.getQueryParams()))
-			routerOperation.setQueryParams(routerFunctionData.getQueryParams());
 	}
 
 	/**
@@ -971,7 +776,7 @@ public abstract class AbstractOpenApiResource extends SpecFilter {
 	 * @return the operation
 	 */
 	private Operation getOperation(RouterOperation routerOperation, Operation existingOperation) {
-		Operation operationModel = routerOperation.getOperationModel();
+		Operation operationModel = routerOperation.getOperation();
 		Operation operation;
 		if (existingOperation != null && operationModel == null) {
 			operation = existingOperation;
